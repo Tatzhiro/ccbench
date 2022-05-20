@@ -20,14 +20,14 @@ using namespace std;
 int checkDuplicate(vector<int> &x, int t, int key)
 {
   int index = key;
-  while (thread_timestamp[x[index]] == thread_timestamp[t])
+  while (thread_timestamp[x[index]].obj_ == thread_timestamp[t].obj_)
   {
     if (x[index] == t)
       return index;
     index--;
   }
   index = key;
-  while (thread_timestamp[x[index]] == thread_timestamp[t])
+  while (thread_timestamp[x[index]].obj_ == thread_timestamp[t].obj_)
   {
     if (x[index] == t)
       return index;
@@ -43,18 +43,18 @@ int myBinarySearch(vector<int> &x, int goal, int tail)
   while (1)
   {
     int search_key = floor((head + tail) / 2);
-    if (thread_timestamp[x[search_key]] == thread_timestamp[goal])
+    if (thread_timestamp[x[search_key]].obj_ == thread_timestamp[goal].obj_)
     {
 #if RANDOM
       assert(x[search_key] == goal);
 #endif
       return search_key;
     }
-    else if (thread_timestamp[goal] > thread_timestamp[x[search_key]])
+    else if (thread_timestamp[goal].obj_ > thread_timestamp[x[search_key]].obj_)
     {
       head = search_key + 1;
     }
-    else if (thread_timestamp[goal] < thread_timestamp[x[search_key]])
+    else if (thread_timestamp[goal].obj_ < thread_timestamp[x[search_key]].obj_)
     {
       tail = search_key - 1;
     }
@@ -71,15 +71,15 @@ int myBinaryInsert(vector<int> &x, int goal, int tail)
   while (1)
   {
     int search_key = floor((head + tail) / 2);
-    if (thread_timestamp[x[search_key]] == thread_timestamp[goal])
+    if (thread_timestamp[x[search_key]].obj_ == thread_timestamp[goal].obj_)
     {
       return search_key;
     }
-    else if (thread_timestamp[goal] > thread_timestamp[x[search_key]])
+    else if (thread_timestamp[goal].obj_ > thread_timestamp[x[search_key]].obj_)
     {
       head = search_key + 1;
     }
-    else if (thread_timestamp[goal] < thread_timestamp[x[search_key]])
+    else if (thread_timestamp[goal].obj_ < thread_timestamp[x[search_key]].obj_)
     {
       tail = search_key - 1;
     }
@@ -420,7 +420,7 @@ void TxExecutor::addCommitSemaphore(int t, LockType t_type, Tuple *tuple)
     retired_type = (LockType)tuple->req_type[r];
     if (conflict(t_type, retired_type))
     {
-      __atomic_add_fetch(&commit_semaphore[t], 1, __ATOMIC_SEQ_CST);
+      __atomic_add_fetch(&commit_semaphore[t].obj_, 1, __ATOMIC_SEQ_CST);
       break;
     }
   }
@@ -471,9 +471,9 @@ void TxExecutor::checkWound(vector<int> &list, LockType lock_type, Tuple *tuple,
     {
       has_conflicts = true;
     }
-    if (has_conflicts == true && thread_timestamp[thid_] <= thread_timestamp[t])
+    if (has_conflicts == true && thread_timestamp[thid_].obj_ <= thread_timestamp[t].obj_)
     {
-      TxPointers[t]->status_ = TransactionStatus::aborted;
+      thread_stats[t].obj_ = 1;
       it = woundRelease(t, tuple, key);
     }
     else
@@ -493,7 +493,7 @@ void TxExecutor::writelockAcquire(LockType EX_lock, uint64_t key, Tuple *tuple)
       checkWound(tuple->retired, EX_lock, tuple, key);
       checkWound(tuple->owners, EX_lock, tuple, key);
       if (tuple->owners.size() == 0 && 
-      (tuple->waiters.size() == 0 || thread_timestamp[thid_] < thread_timestamp[tuple->waiters[0]]))
+      (tuple->waiters.size() == 0 || thread_timestamp[thid_].obj_ < thread_timestamp[tuple->waiters[0]].obj_))
       {
         tuple->ownersAdd(thid_);
         addCommitSemaphore(thid_, EX_lock, tuple);
@@ -521,7 +521,7 @@ void TxExecutor::cascadeAbort(int txn, Tuple *tuple, uint64_t key)
       for (int j = i + 1; j < all_owners.size; j++)
       {
         t = all_owners.arr[j];
-        TxPointers[t]->status_ = TransactionStatus::aborted;
+        thread_stats[t].obj_ = 1;
         if (tuple->remove(t, tuple->retired) == false &&
             tuple->ownersRemove(t) == false)
         {
@@ -582,7 +582,7 @@ vector<int>::iterator TxExecutor::woundRelease(int txn, Tuple *tuple, uint64_t k
     {
       for (int i = 0; i < all_owners.size; i++)
       {
-        __atomic_add_fetch(&commit_semaphore[all_owners.arr[i]], -1, __ATOMIC_SEQ_CST);
+        __atomic_add_fetch(&commit_semaphore[all_owners.arr[i]].obj_, -1, __ATOMIC_SEQ_CST);
         if ((i + 1) < all_owners.size &&
             conflict((LockType)tuple->req_type[all_owners.arr[i]], (LockType)tuple->req_type[all_owners.arr[i + 1]])) // CAUTION: may be wrong
           break;
@@ -632,7 +632,7 @@ bool TxExecutor::LockRelease(bool is_abort, uint64_t key, Tuple *tuple)
         {
           for (int i = 0; i < all_owners.size; i++)
           {
-            __atomic_add_fetch(&commit_semaphore[all_owners.arr[i]], -1, __ATOMIC_SEQ_CST);
+            __atomic_add_fetch(&commit_semaphore[all_owners.arr[i]].obj_, -1, __ATOMIC_SEQ_CST);
             if ((i + 1) < all_owners.size &&
                 conflict((LockType)tuple->req_type[all_owners.arr[i]], (LockType)tuple->req_type[all_owners.arr[i + 1]])) // CAUTION: may be wrong
               break;
@@ -762,7 +762,7 @@ bool TxExecutor::spinWait(uint64_t key, Tuple *tuple)
           return true;
         }
       }
-      if (status_ == TransactionStatus::aborted)
+      if (thread_stats[thid_].obj_ == 1)
       {
         eraseFromLists(tuple);
         PromoteWaiters(tuple);
@@ -815,14 +815,14 @@ bool TxExecutor::lockUpgrade(uint64_t key, Tuple *tuple)
             {
               r = tuple->retired[j];
               retired_type = (LockType)tuple->req_type[r];
-              if (thread_timestamp[thid_] > thread_timestamp[r] &&
+              if (thread_timestamp[thid_].obj_ > thread_timestamp[r].obj_ &&
                   conflict(my_type, retired_type))
               {
                 break;
               }
               if (j + 1 == i)
               {
-                __atomic_add_fetch(&commit_semaphore[thid_], 1, __ATOMIC_SEQ_CST);
+                __atomic_add_fetch(&commit_semaphore[thid_].obj_, 1, __ATOMIC_SEQ_CST);
               }
             }
           }
@@ -842,10 +842,10 @@ bool TxExecutor::lockUpgrade(uint64_t key, Tuple *tuple)
           {
             r = tuple->retired[i];
             retired_type = (LockType)tuple->req_type[r];
-            if (thread_timestamp[thid_] > thread_timestamp[r] &&
+            if (thread_timestamp[thid_].obj_ > thread_timestamp[r].obj_ &&
                 retired_type == LockType::SH)
             {
-              __atomic_add_fetch(&commit_semaphore[thid_], 1, __ATOMIC_SEQ_CST);
+              __atomic_add_fetch(&commit_semaphore[thid_].obj_, 1, __ATOMIC_SEQ_CST);
               break;
             }
           }
@@ -853,7 +853,7 @@ bool TxExecutor::lockUpgrade(uint64_t key, Tuple *tuple)
           return true;
         }
       }
-      if (status_ == TransactionStatus::aborted)
+      if (thread_stats[thid_].obj_ == 1)
       {
         tuple->lock_.w_unlock();
         return false;
@@ -875,7 +875,7 @@ bool TxExecutor::readlockAcquire(LockType SH_lock, uint64_t key, Tuple *tuple)
       checkWound(tuple->retired, SH_lock, tuple, key);
       checkWound(tuple->owners, SH_lock, tuple, key);
       if (tuple->owners.size() == 0 && 
-      (tuple->waiters.size() == 0 || thread_timestamp[thid_] < thread_timestamp[tuple->waiters[0]]))
+      (tuple->waiters.size() == 0 || thread_timestamp[thid_].obj_ < thread_timestamp[tuple->waiters[0]].obj_))
       {
         read_set_.emplace_back(key, tuple, tuple->val_);
         tuple->sortAdd(thid_, tuple->retired);
@@ -935,7 +935,7 @@ bool TxExecutor::readWait(Tuple *tuple, uint64_t key)
           return true;
         }
       }
-      if (status_ == TransactionStatus::aborted)
+      if (thread_stats[thid_].obj_ == 1)
       {
         eraseFromLists(tuple);
         PromoteWaiters(tuple);

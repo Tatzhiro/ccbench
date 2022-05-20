@@ -47,7 +47,7 @@ void Tuple::ownersAdd(int txn)
 void waitSema(int thid, TxExecutor *trans)
 {
   int count = 0;
-  while (commit_semaphore[thid] > 0 && trans->status_ != TransactionStatus::aborted)
+  while (commit_semaphore[thid].obj_ > 0 && thread_stats[thid].obj_ == 0)
   {
     count++;
     // _mm_pause();
@@ -86,14 +86,15 @@ void worker(size_t thid, char &ready, const bool &start, const bool &quit)
                   FLAGS_rratio, FLAGS_rmw, FLAGS_ycsb, false, thid, myres);
 #if NONTS == 0
 #if RANDOM == 0
-    thread_timestamp[thid] = __atomic_add_fetch(&central_timestamp, 1, __ATOMIC_SEQ_CST);
+    thread_timestamp[thid].obj_ = __atomic_add_fetch(&central_timestamp, 1, __ATOMIC_SEQ_CST);
 #endif
 #endif
   RETRY:
 #if RANDOM == 1
-    thread_timestamp[thid] = rnd.next();
+    thread_timestamp[thid].obj_ = rnd.next();
 #endif
-    commit_semaphore[thid] = 0;
+    thread_stats[thid].obj_ = 0;
+    commit_semaphore[thid].obj_ = 0;
     op_counter = 0;
     if (loadAcquire(quit))
       break;
@@ -139,14 +140,14 @@ void worker(size_t thid, char &ready, const bool &start, const bool &quit)
         ERR;
       }
 
-      if (trans.status_ == TransactionStatus::aborted)
+      if (thread_stats[thid].obj_ == 1)
       {
         trans.abort();
         goto RETRY;
       }
     }
     waitSema(thid, &trans);
-    if (trans.status_ == TransactionStatus::aborted)
+    if (thread_stats[thid].obj_ == 1)
     {
       trans.abort();
       goto RETRY;
@@ -203,8 +204,9 @@ try
   makeDB();
   for (int i = 0; i < FLAGS_thread_num; i++)
   {
-    thread_timestamp[i] = 0;
-    commit_semaphore[i] = 0;
+    thread_timestamp[i].obj_ = 0;
+    commit_semaphore[i].obj_ = 0;
+    thread_stats[i].obj_ = 0;
   }
   alignas(CACHE_LINE_SIZE) bool start = false;
   alignas(CACHE_LINE_SIZE) bool quit = false;
