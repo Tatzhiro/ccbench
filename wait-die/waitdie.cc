@@ -63,7 +63,11 @@ void worker(size_t thid, char &ready, const bool &start, const bool &quit) {
     makeProcedure(trans.pro_set_, rnd, zipf, FLAGS_tuple_num, FLAGS_max_ope, FLAGS_thread_num,
                   FLAGS_rratio, FLAGS_rmw, FLAGS_ycsb, false, thid, myres);
 #ifndef NONTS
+#if RANDOM == 0
     trans.txid_ = __atomic_add_fetch(&central_timestamp, 1, __ATOMIC_SEQ_CST); //*** added by tatsu
+#elif RANDOM == 1
+    trans.txid_ = rnd.next();
+#endif
 #endif
 RETRY:
     if (loadAcquire(quit)) break;

@@ -1,7 +1,7 @@
 for k in 4
 # 10000 100000
 do
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DVAL_SIZE=$k -DMASSTREE_USE=0 -DBACK_OFF=1 ..
+    cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DVAL_SIZE=$k -DMASSTREE_USE=0 -DBACK_OFF=1 -DNONTS=1 ..
     ninja
     for j in 16 
     # 32
