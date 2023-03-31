@@ -476,6 +476,10 @@ void TxExecutor::checkWound(vector<int> &list, LockType lock_type, Tuple *tuple,
     }
     if (has_conflicts == true && thread_timestamp[thid_] <= thread_timestamp[t])
     {
+      // if(thread_timestamp[thid_] == thread_timestamp[t]) {
+      //   ++sres_->local_dup_counts_;
+      //   printf("omg\n");
+      // }
       thread_stats[t] = 1;
       it = woundRelease(t, tuple, key);
     }

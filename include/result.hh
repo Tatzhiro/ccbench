@@ -10,6 +10,8 @@ class Result {
 public:
   alignas(CACHE_LINE_SIZE) uint64_t local_abort_counts_ = 0;
   uint64_t local_commit_counts_ = 0;
+  uint64_t local_dup_counts_ = 0;
+  uint64_t total_dup_counts_ = 0;
 #if ADD_ANALYSIS
   uint64_t local_abort_by_operation_ = 0;
   uint64_t local_abort_by_validation_ = 0;
@@ -82,6 +84,8 @@ public:
 
   void displayCommitCounts();
 
+  void displayDupCounts();
+
   void displayTps(size_t extime, size_t thread_num);
 
   void displayAllResult(size_t clocks_per_us, size_t extime, size_t thread_num);
@@ -132,6 +136,8 @@ public:
   void addLocalAbortCounts(const uint64_t count);
 
   void addLocalCommitCounts(const uint64_t count);
+
+  void addLocalDupCounts(const uint64_t count);
 
 #if ADD_ANALYSIS
   void addLocalAbortByOperation(const uint64_t count);

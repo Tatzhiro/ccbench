@@ -56,7 +56,7 @@ class TxExecutor;
 
 alignas(CACHE_LINE_SIZE) GLOBAL Tuple *Table;
 alignas(CACHE_LINE_SIZE) GLOBAL int thread_stats[224];
-alignas(CACHE_LINE_SIZE) GLOBAL int thread_timestamp[224];
+alignas(CACHE_LINE_SIZE) GLOBAL uint64_t_64byte thread_timestamp[224];
 alignas(CACHE_LINE_SIZE) GLOBAL int commit_semaphore[224];
 alignas(CACHE_LINE_SIZE) GLOBAL TxExecutor *TxPointers[224];
 // alignas(CACHE_LINE_SIZE) GLOBAL int pending_commit[224];
